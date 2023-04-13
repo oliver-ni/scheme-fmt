@@ -154,19 +154,18 @@ if __name__ == "__main__":
         pf = ParserFormatter(code, options=options)
         result = "\n\n".join(pf.fmt()) + "\n"
 
-        if code == result:
-            num_fmt -= 1
-            continue
-
         if f is sys.stdin:
             sys.stdout.write(result)
-        else:
+        elif code != result:
             f.seek(0)
             f.write(result)
             f.truncate()
             f.close()
 
-        print(f"{BOLD}reformatted {f.name}{RESET}", file=sys.stderr)
+        if code == result:
+            num_fmt -= 1
+        else:
+            print(f"{BOLD}reformatted {f.name}{RESET}", file=sys.stderr)
 
     if num_fmt > 0:
         print(file=sys.stderr)
