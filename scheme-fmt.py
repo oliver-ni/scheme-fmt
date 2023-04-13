@@ -181,10 +181,10 @@ if __name__ == "__main__":
     nofmt_text = f"{BLUE}{num_nofmt}{RESET} {file(num_nofmt)} left unchanged"
 
     if num_fmt == 0 and num_nofmt == 0:
-        print(f"{BOLD}No files given{RESET}.")
+        print(f"{BOLD}No files given{RESET}.", file=sys.stderr)
     elif num_fmt == 0:
-        print(nofmt_text)
+        print(nofmt_text, file=sys.stderr)
     elif num_nofmt == 0:
-        print(fmt_text)
+        print(fmt_text, file=sys.stderr)
     else:
-        print(f"{fmt_text}, {nofmt_text}.")
+        print(f"{fmt_text}, {nofmt_text}.", file=sys.stderr)
