@@ -1,13 +1,12 @@
 import argparse
 import sys
 from dataclasses import dataclass
-from itertools import pairwise
-from typing import Callable, TypeVar
+from typing import Callable, List, TypeVar, Union
 
 T = TypeVar("T")
 
 
-class SExpr(list[T]):
+class SExpr(List[T]):
     BEGIN = "("
     END = ")"
 
@@ -26,10 +25,10 @@ class QuotedSExpr(SExpr):
 
 
 class TaggedExpr:
-    def __init__(self, expr: str | SExpr["TaggedExpr"], start_pos: int, end_pos: int):
+    def __init__(self, expr: Union[str, SExpr["TaggedExpr"]], start: int, end: int):
         self.inner = expr
-        self.start_pos = start_pos
-        self.end_pos = end_pos
+        self.start_pos = start
+        self.end_pos = end
 
     def __bool__(self):
         return bool(self.inner)
@@ -83,16 +82,17 @@ class ParserFormatter:
         self.take_whitespace()
         start_pos = self.pos
 
-        match self.take_token():
-            case SExpr.BEGIN:
-                expr = SExpr()
-            case QuotedSExpr.BEGIN:
-                expr = QuotedSExpr()
-            case t:
-                return TaggedExpr(t, start_pos, self.pos)
+        t = self.take_token()
+        if t == SExpr.BEGIN:
+            expr = SExpr()
+        elif t == QuotedSExpr.BEGIN:
+            expr = QuotedSExpr()
+        else:
+            return TaggedExpr(t, start_pos, self.pos)
 
-        while elem := self.parse_expr():
-            if elem == expr.END:
+        while True:
+            elem = self.parse_expr()
+            if not elem or elem == expr.END:
                 break
             expr.append(elem)
 
@@ -102,8 +102,7 @@ class ParserFormatter:
         return TaggedExpr(expr, start_pos, self.pos)
 
     def parse(self):
-        while expr := self.parse_expr():
-            yield expr
+        yield from iter(self.parse_expr, "")
 
     def _fmt_expr(self, expr: TaggedExpr, indent: int):
         if isinstance(expr.inner, str):
@@ -115,7 +114,7 @@ class ParserFormatter:
         if len(expr.inner) > 0:
             yield from self._fmt_expr(expr.inner[0], indent=indent + 1)
 
-        for prev, elem in pairwise(expr.inner):
+        for prev, elem in zip(expr.inner, expr.inner[1:]):
             if "\n" in self.code[prev.end_pos : elem.start_pos]:
                 yield "\n"
                 yield self.options.indent_seq * indent
@@ -126,7 +125,7 @@ class ParserFormatter:
         yield expr.inner.END
 
     def fmt_expr(self, expr: TaggedExpr):
-        return "".join(self._fmt_expr(expr, 0))
+        return "".join(self._fmt_expr(expr, 1))
 
     def fmt(self):
         for expr in self.parse():
@@ -159,13 +158,13 @@ if __name__ == "__main__":
             num_fmt -= 1
             continue
 
-        out_f = sys.stdout if f is sys.stdin else f
-        out_f.seek(0)
-        out_f.write(result)
-        out_f.truncate()
-
-        if out_f is not sys.stdout:
-            out_f.close()
+        if f is sys.stdin:
+            sys.stdout.write(result)
+        else:
+            f.seek(0)
+            f.write(result)
+            f.truncate()
+            f.close()
 
         print(f"{BOLD}reformatted {f.name}{RESET}", file=sys.stderr)
 
@@ -181,12 +180,11 @@ if __name__ == "__main__":
     fmt_text = f"{BOLD}{BLUE}{num_fmt}{RESET}{BOLD} {file(num_fmt)} reformatted{RESET}"
     nofmt_text = f"{BLUE}{num_nofmt}{RESET} {file(num_nofmt)} left unchanged"
 
-    match num_fmt, num_nofmt:
-        case 0, 0:
-            print(f"{BOLD}No files given{RESET}.")
-        case 0, _:
-            print(nofmt_text)
-        case _, 0:
-            print(fmt_text)
-        case _, _:
-            print(f"{fmt_text}, {nofmt_text}.")
+    if num_fmt == 0 and num_nofmt == 0:
+        print(f"{BOLD}No files given{RESET}.")
+    elif num_fmt == 0:
+        print(nofmt_text)
+    elif num_nofmt == 0:
+        print(fmt_text)
+    else:
+        print(f"{fmt_text}, {nofmt_text}.")
