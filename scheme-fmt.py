@@ -1,6 +1,7 @@
 import argparse
 import sys
 from dataclasses import dataclass
+from itertools import tee
 from typing import Callable, List, TypeVar, Union
 
 T = TypeVar("T")
@@ -24,8 +25,15 @@ class QuotedSExpr(SExpr):
         return f"'{super().__str__()}"
 
 
+class Comment:
+    BEGIN = ";"
+
+    def __init__(self, text) -> None:
+        self.text = text
+
+
 class TaggedExpr:
-    def __init__(self, expr: Union[str, SExpr["TaggedExpr"]], start: int, end: int):
+    def __init__(self, expr: Union[str, SExpr["TaggedExpr"] | Comment], start: int, end: int):
         self.inner = expr
         self.start_pos = start
         self.end_pos = end
@@ -43,7 +51,7 @@ class FormatOptions:
 
 
 class ParserFormatter:
-    DELIMETERS = SExpr.BEGIN, QuotedSExpr.BEGIN, SExpr.END
+    DELIMETERS = SExpr.BEGIN, QuotedSExpr.BEGIN, SExpr.END, Comment.BEGIN
 
     def __init__(self, code: str, options: FormatOptions = FormatOptions()):
         self.code = code
@@ -73,10 +81,7 @@ class ParserFormatter:
         for t in self.DELIMETERS:
             if self.take(t):
                 return t
-        return self.take_until(
-            lambda s: s.isspace()
-            or any(self.cursor(len(d)) == d for d in self.DELIMETERS)
-        )
+        return self.take_until(lambda s: s.isspace() or any(self.cursor(len(d)) == d for d in self.DELIMETERS))
 
     def parse_expr(self):
         self.take_whitespace()
@@ -87,6 +92,9 @@ class ParserFormatter:
             expr = SExpr()
         elif t == QuotedSExpr.BEGIN:
             expr = QuotedSExpr()
+        elif t == Comment.BEGIN:
+            text = self.take_until(lambda s: s == "\n")
+            return TaggedExpr(Comment(text), start_pos, self.pos)
         else:
             return TaggedExpr(t, start_pos, self.pos)
 
@@ -111,6 +119,10 @@ class ParserFormatter:
 
         yield expr.inner.BEGIN
 
+        if isinstance(expr.inner, Comment):
+            yield expr.inner.text
+            return
+
         if len(expr.inner) > 0:
             yield from self._fmt_expr(expr.inner[0], indent=indent + 1)
 
@@ -128,8 +140,14 @@ class ParserFormatter:
         return "".join(self._fmt_expr(expr, 1))
 
     def fmt(self):
-        for expr in self.parse():
-            yield self.fmt_expr(expr)
+        exprs, exprs2 = tee(self.parse())
+        yield self.fmt_expr(next(exprs2))
+        for prev_expr, next_expr in zip(exprs, exprs2):
+            if "\n\n" in self.code[prev_expr.end_pos : next_expr.start_pos]:
+                yield "\n\n"
+            else:
+                yield "\n"
+            yield self.fmt_expr(next_expr)
 
 
 if __name__ == "__main__":
@@ -137,9 +155,7 @@ if __name__ == "__main__":
     RESET = "\033[0m"
     BLUE = "\033[94m"
 
-    parser = argparse.ArgumentParser(
-        prog="scheme-fmt", description="Formats scheme code"
-    )
+    parser = argparse.ArgumentParser(prog="scheme-fmt", description="Formats scheme code")
     parser.add_argument("--indent-with", choices=["tabs", "spaces"], default="spaces")
     parser.add_argument("--indent-size", type=int, default=2)
     parser.add_argument("files", nargs="+", type=argparse.FileType("r+"))
@@ -152,7 +168,7 @@ if __name__ == "__main__":
     for f in args.files:
         code = f.read()
         pf = ParserFormatter(code, options=options)
-        result = "\n\n".join(pf.fmt()) + "\n"
+        result = "".join(pf.fmt()) + "\n"
 
         if f is sys.stdin:
             sys.stdout.write(result)
