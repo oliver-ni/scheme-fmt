@@ -27,6 +27,7 @@ class QuotedSExpr(SExpr):
 
 class Comment:
     BEGIN = ";"
+    END = "\n"
 
     def __init__(self, text) -> None:
         self.text = text
@@ -54,7 +55,7 @@ class FormatOptions:
 
 
 class ParserFormatter:
-    DELIMETERS = SExpr.BEGIN, QuotedSExpr.BEGIN, SExpr.END, Comment.BEGIN
+    DELIMETERS = SExpr.BEGIN, QuotedSExpr.BEGIN, SExpr.END, Comment.BEGIN, Comment.END
 
     def __init__(self, code: str, options: FormatOptions = FormatOptions()):
         self.code = code
@@ -96,8 +97,8 @@ class ParserFormatter:
         elif t == QuotedSExpr.BEGIN:
             expr = QuotedSExpr()
         elif t == Comment.BEGIN:
-            text = self.take_until(lambda s: s == "\n")
-            self.take("\n")
+            text = self.take_until(lambda s: s == Comment.END)
+            self.take(Comment.END)
             return TaggedExpr(Comment(text), start_pos, self.pos)
         else:
             return TaggedExpr(t, start_pos, self.pos)
@@ -153,10 +154,7 @@ class ParserFormatter:
         exprs, exprs2 = tee(self.parse())
         yield self.fmt_expr(next(exprs2))
         for prev_expr, next_expr in zip(exprs, exprs2):
-            if "\n\n" in self.code[prev_expr.end_pos : next_expr.start_pos]:
-                yield "\n\n"
-            else:
-                yield "\n"
+            yield self.code[prev_expr.end_pos : next_expr.start_pos].count("\n") * "\n"
             yield self.fmt_expr(next_expr)
 
 
