@@ -44,6 +44,9 @@ class TaggedExpr:
     def __eq__(self, value: object):
         return self.inner == value
 
+    def __str__(self):
+        return str(self.inner)
+
 
 @dataclass
 class FormatOptions:
@@ -94,6 +97,7 @@ class ParserFormatter:
             expr = QuotedSExpr()
         elif t == Comment.BEGIN:
             text = self.take_until(lambda s: s == "\n")
+            self.take("\n")
             return TaggedExpr(Comment(text), start_pos, self.pos)
         else:
             return TaggedExpr(t, start_pos, self.pos)
@@ -121,23 +125,29 @@ class ParserFormatter:
 
         if isinstance(expr.inner, Comment):
             yield expr.inner.text
+            yield "\n"
+            yield self.options.indent_seq * indent
             return
 
+        last = ""
+
         if len(expr.inner) > 0:
-            yield from self._fmt_expr(expr.inner[0], indent=indent + 1)
+            for last in self._fmt_expr(expr.inner[0], indent=indent + 1):
+                yield last
 
         for prev, elem in zip(expr.inner, expr.inner[1:]):
             if "\n" in self.code[prev.end_pos : elem.start_pos]:
                 yield "\n"
-                yield self.options.indent_seq * indent
-            else:
+                yield self.options.indent_seq * (indent + 1)
+            elif not last.isspace():
                 yield " "
-            yield from self._fmt_expr(elem, indent=indent + 1)
+            for last in self._fmt_expr(elem, indent=indent + 1):
+                yield last
 
         yield expr.inner.END
 
     def fmt_expr(self, expr: TaggedExpr):
-        return "".join(self._fmt_expr(expr, 1))
+        return "".join(self._fmt_expr(expr, 0))
 
     def fmt(self):
         exprs, exprs2 = tee(self.parse())
