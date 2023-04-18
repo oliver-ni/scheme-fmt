@@ -3,6 +3,10 @@
 All notable changes to the "scheme-fmt" extension will be documented in this
 file.
 
+## [1.1.3] — 2023-04-17
+
+- No longer messes with newlines between top-level expressions
+
 ## [1.1.2] — 2023-04-17
 
 - Fixes formatting comments at the end of S-expressions
