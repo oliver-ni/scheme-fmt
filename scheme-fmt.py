@@ -128,7 +128,7 @@ class ParserFormatter:
 
         while True:
             elem = self.parse_expr()
-            if not elem or elem == expr.END:
+            if (elem is None or elem == expr.END):
                 break
             expr.append(elem)
 
