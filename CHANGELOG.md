@@ -5,6 +5,10 @@ file.
 
 ## [1.2.0] — 2023-04-18
 
+- Fix bug with processing empty list
+
+## [1.2.0] — 2023-04-18
+
 - Adds support for quasiquote and unquote short syntax
 
 ## [1.1.3] — 2023-04-17

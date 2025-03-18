@@ -4,7 +4,7 @@
   "description": "Formats Scheme source code",
   "repository": "github:oliver-ni/scheme-fmt",
   "publisher": "oliver-ni",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "engines": {
     "vscode": "^1.77.0"
   },
