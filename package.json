@@ -11,12 +11,17 @@
   "categories": [
     "Formatters"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onLanguage:scheme"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "languages": [
       {
         "id": "scheme",
+        "aliases": [
+          "Scheme"
+        ],
         "extensions": [
           ".scm"
         ]
